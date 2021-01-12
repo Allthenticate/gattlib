@@ -53,7 +53,7 @@ class Device:
             adapter_name = None
 
         self._connection = gattlib_connect(adapter_name, self._addr, options)
-        if self._connection == 0:
+        if self._connection is None:
             raise DeviceError()
 
     # Disable until https://github.com/labapart/gattlib/issues/75 is resolved
