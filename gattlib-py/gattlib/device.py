@@ -6,21 +6,26 @@ from .exception import handle_return, DeviceError
 from .gatt import GattService, GattCharacteristic
 from .uuid import gattlib_uuid_to_int
 
-CONNECTION_OPTIONS_LEGACY_BDADDR_LE_PUBLIC = (1 << 0)
-CONNECTION_OPTIONS_LEGACY_BDADDR_LE_RANDOM = (1 << 1)
-CONNECTION_OPTIONS_LEGACY_BT_SEC_LOW = (1 << 2)
-CONNECTION_OPTIONS_LEGACY_BT_SEC_MEDIUM = (1 << 3)
-CONNECTION_OPTIONS_LEGACY_BT_SEC_HIGH = (1 << 4)
+CONNECTION_OPTIONS_LEGACY_BDADDR_LE_PUBLIC = 1 << 0
+CONNECTION_OPTIONS_LEGACY_BDADDR_LE_RANDOM = 1 << 1
+CONNECTION_OPTIONS_LEGACY_BT_SEC_LOW = 1 << 2
+CONNECTION_OPTIONS_LEGACY_BT_SEC_MEDIUM = 1 << 3
+CONNECTION_OPTIONS_LEGACY_BT_SEC_HIGH = 1 << 4
 
-CONNECTION_OPTIONS_LEGACY_DEFAULT = \
-        CONNECTION_OPTIONS_LEGACY_BDADDR_LE_PUBLIC | \
-        CONNECTION_OPTIONS_LEGACY_BDADDR_LE_RANDOM | \
-        CONNECTION_OPTIONS_LEGACY_BT_SEC_LOW
+CONNECTION_OPTIONS_LEGACY_DEFAULT = (
+    CONNECTION_OPTIONS_LEGACY_BDADDR_LE_PUBLIC
+    | CONNECTION_OPTIONS_LEGACY_BDADDR_LE_RANDOM
+    | CONNECTION_OPTIONS_LEGACY_BT_SEC_LOW
+)
 
 
 class Device:
-
     def __init__(self, adapter, addr, name=None):
+        """
+        @param adapter:  The adapter to use (e.g., hci0)
+        @param addr: The address of the device (e.g., AA:BB:CC:DD:EE:FF)
+        @param name: The human-readable name of this device.
+        """
         self._adapter = adapter
         if type(addr) == str:
             self._addr = addr.encode("utf-8")
@@ -57,12 +62,12 @@ class Device:
             raise DeviceError()
 
     # Disable until https://github.com/labapart/gattlib/issues/75 is resolved
-#     @property
-#     def rssi(self):
-#         _rssi = c_int16(0)
-#         ret = gattlib_get_rssi(self._connection, byref(_rssi))
-#         handle_return(ret)
-#         return _rssi.value
+    #     @property
+    #     def rssi(self):
+    #         _rssi = c_int16(0)
+    #         ret = gattlib_get_rssi(self._connection, byref(_rssi))
+    #         handle_return(ret)
+    #         return _rssi.value
 
     @staticmethod
     def on_disconnection(user_data):
@@ -119,15 +124,24 @@ class Device:
         _manufacturer_data_len = c_size_t(0)
 
         if self._connection is None:
-            ret = gattlib_get_advertisement_data_from_mac(self._adapter._adapter, self._addr,
-                                                          byref(_advertisement_data), byref(_advertisement_data_count),
-                                                          byref(_manufacturer_id),
-                                                          byref(_manufacturer_data), byref(_manufacturer_data_len))
+            ret = gattlib_get_advertisement_data_from_mac(
+                self._adapter._adapter,
+                self._addr,
+                byref(_advertisement_data),
+                byref(_advertisement_data_count),
+                byref(_manufacturer_id),
+                byref(_manufacturer_data),
+                byref(_manufacturer_data_len),
+            )
         else:
-            ret = gattlib_get_advertisement_data(self._connection,
-                                                 byref(_advertisement_data), byref(_advertisement_data_count),
-                                                 byref(_manufacturer_id),
-                                                 byref(_manufacturer_data), byref(_manufacturer_data_len))
+            ret = gattlib_get_advertisement_data(
+                self._connection,
+                byref(_advertisement_data),
+                byref(_advertisement_data_count),
+                byref(_manufacturer_id),
+                byref(_manufacturer_data),
+                byref(_manufacturer_data_len),
+            )
 
         handle_return(ret)
 
@@ -136,7 +150,7 @@ class Device:
 
         for i in range(0, _advertisement_data_count.value):
             service_data = _advertisement_data[i]
-            uuid = gattlib_uuid_to_int(service_data.uuid)
+            uuid_adv = gattlib_uuid_to_int(service_data.uuid)
 
             pointer_type = POINTER(c_byte * service_data.data_length)
             c_bytearray = cast(service_data.data, pointer_type)
@@ -145,7 +159,7 @@ class Device:
             for i in range(service_data.data_length):
                 data[i] = c_bytearray.contents[i] & 0xFF
 
-            advertisement_data[uuid] = data
+            advertisement_data[uuid_adv] = data
 
         if _manufacturer_data_len.value > 0:
             pointer_type = POINTER(c_byte * _manufacturer_data_len.value)
@@ -157,9 +171,58 @@ class Device:
 
         return advertisement_data, _manufacturer_id.value, manufacturer_data
 
+    def get_uuids(self):
+        """
+        List all of the service UUIDs for this device
+        @return: List of UUIDs [uuid.UUID, ...]
+
+        /**
+         * @brief Function to retrieve advertised UUIDs of this device
+         *
+         * @param connection Active GATT connection
+         * @param services is an array of UUIDs
+         * @param services_count is the number of UUIDs in services
+         *
+         * @return GATTLIB_SUCCESS on success or GATTLIB_* error code
+         */
+        int gattlib_get_uuids(gatt_connection_t* connection,
+                              const char** services,
+                              size_t* services_count);
+
+        /**
+         * @brief Function to retrieve advertised UUIDs of this device
+         *
+         * @param adapter is the adapter the new device has been seen
+         * @param mac_address is the MAC address of the device to get UUIDs from
+         * @param services is an array of UUIDs
+         * @param services_count is the number of UUIDs in services
+         *
+         * @return GATTLIB_SUCCESS on success or GATTLIB_* error code
+         */
+        int gattlib_get_uuids_from_mac(void* adapter, const char* mac_address,
+                                       const char ** services,
+                                       size_t* services_count);
+        """
+
+        _services = POINTER(c_char_p)()
+        _services_count = c_size_t(0)
+        if self._connection is None:
+            ret = gattlib_get_uuids_from_mac(
+                self._adapter._adapter, self._addr, byref(_services), byref(_services_count)
+            )
+        else:
+            ret = gattlib_get_uuids(self._connection, byref(_services), byref(_services_count))
+        handle_return(ret)
+        #
+        services = []
+        for i in range(0, _services_count.value):
+            services.append(uuid.UUID(_services[i].decode()))
+
+        return services
+
     @property
     def services(self):
-        if not hasattr(self, '_services'):
+        if not hasattr(self, "_services"):
             logging.warning("Start GATT discovery implicitly")
             self.discover()
 
@@ -167,7 +230,7 @@ class Device:
 
     @property
     def characteristics(self):
-        if not hasattr(self, '_characteristics'):
+        if not hasattr(self, "_characteristics"):
             logging.warning("Start GATT discovery implicitly")
             self.discover()
 
@@ -197,7 +260,7 @@ class Device:
             value[i] = c_bytearray.contents[i]
 
         # Call GATT characteristic Notification callback
-        characteristic_callback['callback'](value, characteristic_callback['user_data'])
+        characteristic_callback["callback"](value, characteristic_callback["user_data"])
 
     def _notification_init(self):
         if self._is_notification_init:
@@ -211,7 +274,10 @@ class Device:
         if not self._is_notification_init:
             self._notification_init()
 
-        self._gatt_characteristic_callbacks[gatt_characteristic.short_uuid] = { 'callback': callback, 'user_data': user_data }
+        self._gatt_characteristic_callbacks[gatt_characteristic.short_uuid] = {
+            "callback": callback,
+            "user_data": user_data,
+        }
 
     def __str__(self):
         name = self._name

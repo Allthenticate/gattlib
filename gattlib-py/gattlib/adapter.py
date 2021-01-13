@@ -30,8 +30,12 @@ EDDYSTONE_URL_SCHEME_PREFIX = {
 
 class Adapter:
 
-    def __init__(self, name=c_char_p(None)):
-        self._name = name
+    def __init__(self, name=None):
+        # Must encode as utf-8 to be a char * in C++
+        if name is not None:
+            self._name = name.encode('utf-8')
+        else:
+            self._name = c_char_p(None)
         self._adapter = c_void_p(None)
         self._is_opened = False  # Note: 'self._adapter != c_void_p(None)' does not seem to return the expected result
 
@@ -45,15 +49,32 @@ class Adapter:
         return []
 
     def open(self):
+        """
+        Open a communication channel with the specified adapter
+
+        @return: True if the adapter was attached to successfully
+        """
         ret = gattlib_adapter_open(self._name, byref(self._adapter))
         if ret == 0:
             self._is_opened = True
-        return ret
+
+        # 0 is success
+        return ret == 0
 
     def close(self):
-        ret = gattlib.gattlib_adapter_close(self._adapter)
-        self._is_opened = False
-        return ret
+        """
+        Close the communication with the current adapter
+
+        @return: False is something fails in the C call
+        """
+        if self._is_opened:
+            ret = gattlib.gattlib_adapter_close(self._adapter)
+            self._is_opened = False
+
+            # 0 is success?
+            return ret == 0
+        else:
+            return False
 
     def on_discovered_device(self, adapter, addr, name, user_data):
         device = Device(self, addr, name)

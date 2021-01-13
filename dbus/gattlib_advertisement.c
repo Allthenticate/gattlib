@@ -25,147 +25,245 @@
 
 #if BLUEZ_VERSION < BLUEZ_VERSIONS(5, 40)
 
-int gattlib_get_advertisement_data(gatt_connection_t *connection,
-		gattlib_advertisement_data_t **advertisement_data, size_t *advertisement_data_count,
-		uint16_t *manufacturer_id, uint8_t **manufacturer_data, size_t *manufacturer_data_size)
-{
-	return GATTLIB_NOT_SUPPORTED;
+int gattlib_get_advertisement_data(
+    gatt_connection_t *connection,
+    gattlib_advertisement_data_t **advertisement_data,
+    size_t *advertisement_data_count, uint16_t *manufacturer_id,
+    uint8_t **manufacturer_data, size_t *manufacturer_data_size) {
+    return GATTLIB_NOT_SUPPORTED;
 }
 
-int gattlib_get_advertisement_data_from_mac(void *adapter, const char *mac_address,
-		gattlib_advertisement_data_t **advertisement_data, size_t *advertisement_data_count,
-		uint16_t *manufacturer_id, uint8_t **manufacturer_data, size_t *manufacturer_data_size)
-{
-	return GATTLIB_NOT_SUPPORTED;
+int gattlib_get_advertisement_data_from_mac(
+    void *adapter, const char *mac_address,
+    gattlib_advertisement_data_t **advertisement_data,
+    size_t *advertisement_data_count, uint16_t *manufacturer_id,
+    uint8_t **manufacturer_data, size_t *manufacturer_data_size) {
+    return GATTLIB_NOT_SUPPORTED;
 }
 
 #else
 
-int get_advertisement_data_from_device(OrgBluezDevice1 *bluez_device1,
-		gattlib_advertisement_data_t **advertisement_data, size_t *advertisement_data_count,
-		uint16_t *manufacturer_id, uint8_t **manufacturer_data, size_t *manufacturer_data_size)
-{
-	GVariant *manufacturer_data_variant;
-	GVariant *service_data_variant;
+int get_advertisement_data_from_device(
+    OrgBluezDevice1 *bluez_device1,
+    gattlib_advertisement_data_t **advertisement_data,
+    size_t *advertisement_data_count, uint16_t *manufacturer_id,
+    uint8_t **manufacturer_data, size_t *manufacturer_data_size) {
+    GVariant *manufacturer_data_variant;
+    GVariant *service_data_variant;
+    GVariant *gatt_data_variant;
+    size_t gatt_data_count = 0;
 
-	if (advertisement_data == NULL) {
-		return GATTLIB_INVALID_PARAMETER;
-	}
+    if (advertisement_data == NULL) {
+        return GATTLIB_INVALID_PARAMETER;
+    }
 
-	*manufacturer_id = 0;
-	*manufacturer_data_size = 0;
-	manufacturer_data_variant = org_bluez_device1_get_manufacturer_data(bluez_device1);
-	if (manufacturer_data_variant != NULL) {
-		if (g_variant_n_children(manufacturer_data_variant) != 1) {
-			fprintf(stderr, "Warning: Manufacturer Data with multiple children: %s\n",
-				g_variant_print(manufacturer_data_variant, TRUE));
-			return GATTLIB_NOT_SUPPORTED;
-		}
-		GVariant* manufacturer_data_dict = g_variant_get_child_value(manufacturer_data_variant, 0);
-		GVariantIter *iter;
-		GVariant* values;
+    *manufacturer_id = 0;
+    *manufacturer_data_size = 0;
+    manufacturer_data_variant =
+        org_bluez_device1_get_manufacturer_data(bluez_device1);
+    if (manufacturer_data_variant != NULL) {
+        if (g_variant_n_children(manufacturer_data_variant) != 1) {
+            fprintf(stderr,
+                    "Warning: Manufacturer Data with multiple children: %s\n",
+                    g_variant_print(manufacturer_data_variant, TRUE));
+            return GATTLIB_NOT_SUPPORTED;
+        }
+        GVariant *manufacturer_data_dict =
+            g_variant_get_child_value(manufacturer_data_variant, 0);
+        GVariantIter *iter;
+        GVariant *values;
 
-		g_variant_get(manufacturer_data_dict, "{qv}", manufacturer_id, &values);
-		*manufacturer_data_size = g_variant_n_children(values);
+        g_variant_get(manufacturer_data_dict, "{qv}", manufacturer_id, &values);
+        *manufacturer_data_size = g_variant_n_children(values);
 
-		*manufacturer_data = calloc(*manufacturer_data_size, sizeof(guchar));
-		if (*manufacturer_data == NULL) {
-			return GATTLIB_OUT_OF_MEMORY;
-		}
+        *manufacturer_data = calloc(*manufacturer_data_size, sizeof(guchar));
+        if (*manufacturer_data == NULL) {
+            return GATTLIB_OUT_OF_MEMORY;
+        }
 
-		GVariant* value;
-		g_variant_get(values, "ay", &iter);
-		size_t index = 0;
+        GVariant *value;
+        g_variant_get(values, "ay", &iter);
+        size_t index = 0;
 
-		while ((value = g_variant_iter_next_value(iter)) != NULL) {
-			g_variant_get(value, "y", &(*manufacturer_data)[index++]);
-			g_variant_unref(value);
-		}
-		g_variant_iter_free(iter);
-	}
+        while ((value = g_variant_iter_next_value(iter)) != NULL) {
+            g_variant_get(value, "y", &(*manufacturer_data)[index++]);
+            g_variant_unref(value);
+        }
+        g_variant_iter_free(iter);
+    }
 
-	service_data_variant = org_bluez_device1_get_service_data(bluez_device1);
-	if (service_data_variant != NULL) {
-		GVariantIter *iter;
-		const gchar *key;
-		GVariant *value;
-		size_t index = 0;
+    service_data_variant = org_bluez_device1_get_service_data(bluez_device1);
+    if (service_data_variant != NULL) {
+        GVariantIter *iter;
+        const gchar *key;
+        GVariant *value;
+        size_t index = 0;
 
-		*advertisement_data_count = g_variant_n_children(service_data_variant);
+        *advertisement_data_count = g_variant_n_children(service_data_variant);
 
-		gattlib_advertisement_data_t *advertisement_data_ptr = calloc(sizeof(gattlib_advertisement_data_t), *advertisement_data_count);
-		if (advertisement_data_ptr == NULL) {
-			return GATTLIB_OUT_OF_MEMORY;
-		}
+        gattlib_advertisement_data_t *advertisement_data_ptr = calloc(
+            sizeof(gattlib_advertisement_data_t), *advertisement_data_count);
+        if (advertisement_data_ptr == NULL) {
+            return GATTLIB_OUT_OF_MEMORY;
+        }
 
-		g_variant_get(service_data_variant, "a{sv}", &iter);
-		while (g_variant_iter_loop(iter, "{&sv}", &key, &value)) {
-			gattlib_string_to_uuid(key, strlen(key), &advertisement_data_ptr[index].uuid);
+        g_variant_get(service_data_variant, "a{sv}", &iter);
+        while (g_variant_iter_loop(iter, "{&sv}", &key, &value)) {
+            gattlib_string_to_uuid(key, strlen(key),
+                                   &advertisement_data_ptr[index].uuid);
 
-			gsize n_elements = 0;
-			gconstpointer const_buffer = g_variant_get_fixed_array(value, &n_elements, sizeof(guchar));
-			if (const_buffer) {
-				advertisement_data_ptr[index].data = malloc(n_elements);
-				if (advertisement_data_ptr[index].data == NULL) {
-					return GATTLIB_OUT_OF_MEMORY;
-				}
+            gsize n_elements = 0;
+            gconstpointer const_buffer =
+                g_variant_get_fixed_array(value, &n_elements, sizeof(guchar));
+            if (const_buffer) {
+                advertisement_data_ptr[index].data = malloc(n_elements);
+                if (advertisement_data_ptr[index].data == NULL) {
+                    return GATTLIB_OUT_OF_MEMORY;
+                }
 
-				advertisement_data_ptr[index].data_length = n_elements;
-				memcpy(advertisement_data_ptr[index].data, const_buffer, n_elements);
-			} else {
-				advertisement_data_ptr[index].data_length = 0;
-			}
+                advertisement_data_ptr[index].data_length = n_elements;
+                memcpy(advertisement_data_ptr[index].data, const_buffer,
+                       n_elements);
+            } else {
+                advertisement_data_ptr[index].data_length = 0;
+            }
 
-			index++;
-		}
-		g_variant_iter_free(iter);
+            index++;
+        }
+        g_variant_iter_free(iter);
 
-		*advertisement_data = advertisement_data_ptr;
-	} else {
-		*advertisement_data_count = 0;
-		*advertisement_data = NULL;
-	}
+        *advertisement_data = advertisement_data_ptr;
+    } else {
+        *advertisement_data_count = 0;
+        *advertisement_data = NULL;
+    }
 
-	return GATTLIB_SUCCESS;
+    // const gchar *const *service_strs =
+    //     org_bluez_device1_get_uuids(bluez_device1);
+    // if (service_strs != NULL) {
+    //     printf("GOT GATT SERVICES!\n");
+    //     const gchar *const *service_str;
+    //     for (service_str = service_strs; *service_str != NULL; service_str++)
+    //     {
+    //         printf("%s\n", *service_str);
+    //     }
+    // }
+
+    return GATTLIB_SUCCESS;
 }
 
-int gattlib_get_advertisement_data(gatt_connection_t *connection,
-		gattlib_advertisement_data_t **advertisement_data, size_t *advertisement_data_count,
-		uint16_t *manufacturer_id, uint8_t **manufacturer_data, size_t *manufacturer_data_size)
-{
-	gattlib_context_t* conn_context;
+int get_uuids_data_from_device(OrgBluezDevice1 *bluez_device1,
+                               const char **services,
+                               size_t *services_count) {
+    const gchar *const *service_strs =
+        org_bluez_device1_get_uuids(bluez_device1);
 
-	if (connection == NULL) {
-		return GATTLIB_INVALID_PARAMETER;
-	}
+    // Make sure we return something
+    *services_count = 0;
 
-	conn_context = connection->context;
+    if (service_strs != NULL) {
+        // Read the services returned from BlueZ
+        const gchar *const *service_str;
+        for (service_str = service_strs; *service_str != NULL; service_str++) {
+            *services_count += 1;
+        }
 
-	return get_advertisement_data_from_device(conn_context->device,
-			advertisement_data, advertisement_data_count,
-			manufacturer_id, manufacturer_data, manufacturer_data_size);
+        if (*services_count > 0) {
+            // Malloc space for all of our pointers
+            char ** services_tmp =
+                malloc((*services_count + 1) * sizeof(const char *));
+            if (services_count == NULL) {
+                return GATTLIB_OUT_OF_MEMORY;
+            }
+
+            // Allocate each string and point to it
+            *services_count = 0;
+            for (service_str = service_strs; *service_str != NULL; service_str++) {
+                services_tmp[*services_count] = strdup(*service_str);
+                *services_count += 1;
+            }
+            // Return the proper value
+            *services = services_tmp;
+        } else {
+            *services = NULL;
+        }
+    }
+    return GATTLIB_SUCCESS;
 }
 
-int gattlib_get_advertisement_data_from_mac(void *adapter, const char *mac_address,
-		gattlib_advertisement_data_t **advertisement_data, size_t *advertisement_data_count,
-		uint16_t *manufacturer_id, uint8_t **manufacturer_data, size_t *manufacturer_data_size)
-{
-	OrgBluezDevice1 *bluez_device1;
-	int ret;
+int gattlib_get_uuids(gatt_connection_t *connection,
+                      const char **services,
+                      size_t *services_count) {
+    gattlib_context_t *conn_context;
 
-	ret = get_bluez_device_from_mac(adapter, mac_address, &bluez_device1);
-	if (ret != GATTLIB_SUCCESS) {
-		g_object_unref(bluez_device1);
-		return ret;
-	}
+    if (connection == NULL) {
+        return GATTLIB_INVALID_PARAMETER;
+    }
 
-	ret = get_advertisement_data_from_device(bluez_device1,
-			advertisement_data, advertisement_data_count,
-			manufacturer_id, manufacturer_data, manufacturer_data_size);
+    conn_context = connection->context;
 
-	g_object_unref(bluez_device1);
+    return get_uuids_data_from_device(conn_context->device, services,
+                                      services_count);
+}
 
-	return ret;
+int gattlib_get_uuids_from_mac(void *adapter, const char *mac_address,
+                               const char **services,
+                               size_t *services_count) {
+    OrgBluezDevice1 *bluez_device1;
+    int ret;
+
+    ret = get_bluez_device_from_mac(adapter, mac_address, &bluez_device1);
+    if (ret != GATTLIB_SUCCESS) {
+        g_object_unref(bluez_device1);
+        return ret;
+    }
+
+    ret = get_uuids_data_from_device(bluez_device1, services, services_count);
+
+    g_object_unref(bluez_device1);
+
+    return ret;
+}
+
+int gattlib_get_advertisement_data(
+    gatt_connection_t *connection,
+    gattlib_advertisement_data_t **advertisement_data,
+    size_t *advertisement_data_count, uint16_t *manufacturer_id,
+    uint8_t **manufacturer_data, size_t *manufacturer_data_size) {
+    gattlib_context_t *conn_context;
+
+    if (connection == NULL) {
+        return GATTLIB_INVALID_PARAMETER;
+    }
+
+    conn_context = connection->context;
+
+    return get_advertisement_data_from_device(
+        conn_context->device, advertisement_data, advertisement_data_count,
+        manufacturer_id, manufacturer_data, manufacturer_data_size);
+}
+
+int gattlib_get_advertisement_data_from_mac(
+    void *adapter, const char *mac_address,
+    gattlib_advertisement_data_t **advertisement_data,
+    size_t *advertisement_data_count, uint16_t *manufacturer_id,
+    uint8_t **manufacturer_data, size_t *manufacturer_data_size) {
+    OrgBluezDevice1 *bluez_device1;
+    int ret;
+
+    ret = get_bluez_device_from_mac(adapter, mac_address, &bluez_device1);
+    if (ret != GATTLIB_SUCCESS) {
+        g_object_unref(bluez_device1);
+        return ret;
+    }
+
+    ret = get_advertisement_data_from_device(
+        bluez_device1, advertisement_data, advertisement_data_count,
+        manufacturer_id, manufacturer_data, manufacturer_data_size);
+
+    g_object_unref(bluez_device1);
+
+    return ret;
 }
 
 #endif /* #if BLUEZ_VERSION < BLUEZ_VERSIONS(5, 40) */

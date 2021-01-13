@@ -155,3 +155,9 @@ gattlib_get_advertisement_data.argtypes = [c_void_p, POINTER(POINTER(GattlibAdve
 #        uint16_t *manufacturer_id, uint8_t **manufacturer_data, size_t *manufacturer_data_size)
 gattlib_get_advertisement_data_from_mac = gattlib.gattlib_get_advertisement_data_from_mac
 gattlib_get_advertisement_data_from_mac.argtypes = [c_void_p, c_char_p, POINTER(POINTER(GattlibAdvertisementData)), POINTER(c_size_t), POINTER(c_uint16), POINTER(c_void_p), POINTER(c_size_t)]
+
+gattlib_get_uuids = gattlib.gattlib_get_uuids
+gattlib_get_uuids.argtypes = [c_void_p, POINTER(POINTER(c_char_p)), POINTER(c_size_t)]
+
+gattlib_get_uuids_from_mac = gattlib.gattlib_get_uuids_from_mac
+gattlib_get_uuids_from_mac.argtypes = [c_void_p, c_char_p, POINTER(POINTER(c_char_p)), POINTER(c_size_t)]

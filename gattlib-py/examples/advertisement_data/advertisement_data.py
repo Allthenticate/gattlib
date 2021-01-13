@@ -10,7 +10,11 @@ args = parser.parse_args()
 
 def on_discovered_ble_device(device, user_data):
     advertisement_data, manufacturer_id, manufacturer_data = device.get_advertisement_data()
-    print("Device Advertisement Data: %s" % manufacturer_data)
+    print(device.id)
+    print("\tAdvertisement Data: %s" % advertisement_data)
+    print("\tManufacturer Data: %s" % manufacturer_data)
+    uuids = device.get_uuids()
+    print("\tUUIDs: %s" % uuids)
 
 
 # Use default adapter

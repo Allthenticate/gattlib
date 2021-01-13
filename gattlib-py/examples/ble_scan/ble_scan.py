@@ -13,9 +13,11 @@ lock = threading.Lock()
 
 
 def connect_ble_device(device):
-    device.connect()
 
+    device.connect()
+    
     lock.acquire()
+
 
     print("---------------------------------")
     print("Found BLE Device %s" % device.id)
