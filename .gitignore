@@ -1,2 +1,8 @@
 build
+.*
+# python
+cmake-build-debug/
+gattlib-py/dist/
+gattlib-py/gattlib_py.egg-info/
 __pycache__
+*.pyc
