@@ -74,19 +74,35 @@ int main(int argc, const char *argv[]) {
         return 1;
     }
 
-    ret = gattlib_adapter_scan_enable_with_filter(
-        adapter, NULL, /* Do not filter on any specific Service UUID */
-        0 /* RSSI Threshold */,
-        GATTLIB_DISCOVER_FILTER_NOTIFY_CHANGE, /* Notify change of advertising
-                                                  data/RSSI */
-        ble_advertising_device, 0, /* timeout=0 means infinite loop */
-        NULL /* user_data */);
-    if (ret) {
-        fprintf(stderr, "ERROR: Failed to scan.\n");
-        goto EXIT;
-    }
 
-    gattlib_adapter_scan_disable(adapter);
+//    // Sync
+//    ret = gattlib_adapter_scan_enable_with_filter(
+//        adapter, NULL, /* Do not filter on any specific Service UUID */
+//        0 /* RSSI Threshold */,
+//        GATTLIB_DISCOVER_FILTER_NOTIFY_CHANGE, /* Notify change of advertising
+//                                                  data/RSSI */
+//        ble_advertising_device, 0, /* timeout=0 means infinite loop */
+//        NULL /* user_data */);
+//    if (ret) {
+//        fprintf(stderr, "ERROR: Failed to scan.\n");
+//        goto EXIT;
+//    }
+//
+//    gattlib_adapter_scan_disable(adapter);
+
+
+    // Async
+    printf("Enabling scanning...");
+    gattlib_adapter_scan_enable_async(adapter, ble_advertising_device, NULL /* user_data */);
+
+
+    printf("Sleeping for a bit...\n");
+    g_usleep(1000000);
+    printf("Done.\n");
+
+
+    gattlib_adapter_scan_disable_async(adapter);
+
 
     puts("Scan completed");
 

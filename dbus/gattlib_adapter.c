@@ -23,6 +23,20 @@
 
 #include "gattlib_internal.h"
 
+/*
+ * Internal structure to pass to Device Manager signal handlers
+ */
+struct discovered_device_arg {
+    void *adapter;
+    uint32_t enabled_filters;
+    gattlib_discovered_device_t callback;
+    void *user_data;
+    GSList** discovered_devices_ptr;
+};
+// Pass the user callback and the discovered device list pointer to the signal handlers
+// TODO(Chad): Create and destroy this on the heap correctly
+struct discovered_device_arg discovered_device_arg;
+pthread_t scanning_thread;
 
 int gattlib_adapter_open(const char* adapter_name, void** adapter) {
 	char object_path[20];
@@ -115,16 +129,6 @@ GDBusObjectManager *get_device_manager_from_adapter(struct gattlib_adapter *gatt
 	return gattlib_adapter->device_manager;
 }
 
-/*
- * Internal structure to pass to Device Manager signal handlers
- */
-struct discovered_device_arg {
-	void *adapter;
-	uint32_t enabled_filters;
-	gattlib_discovered_device_t callback;
-	void *user_data;
-	GSList** discovered_devices_ptr;
-};
 
 static void device_manager_on_device1_signal(const char* device1_path, struct discovered_device_arg *arg)
 {
@@ -136,31 +140,22 @@ static void device_manager_on_device1_signal(const char* device1_path, struct di
 			device1_path,
 			NULL,
 			&error);
+
+	printf("Got a callback signal (device manager)\n");
 	if (error) {
 		fprintf(stderr, "Failed to connection to new DBus Bluez Device: %s\n",
 			error->message);
 		g_error_free(error);
 	}
 
+	// Make sure we're connected.
 	if (device1) {
 		const gchar *address = org_bluez_device1_get_address(device1);
-
-		// Check if the device is already part of the list
-		GSList *item = g_slist_find_custom(*arg->discovered_devices_ptr, address, (GCompareFunc)g_ascii_strcasecmp);
-
-		// First time this device is in the list
-		if (item == NULL) {
-			// Add the device to the list
-			*arg->discovered_devices_ptr = g_slist_append(*arg->discovered_devices_ptr, g_strdup(address));
-		}
-
-		if ((item == NULL) || (arg->enabled_filters & GATTLIB_DISCOVER_FILTER_NOTIFY_CHANGE)) {
-			arg->callback(
-				arg->adapter,
-				org_bluez_device1_get_address(device1),
-				org_bluez_device1_get_name(device1),
-				arg->user_data);
-		}
+        arg->callback(
+            arg->adapter,
+            org_bluez_device1_get_address(device1),
+            org_bluez_device1_get_name(device1),
+            arg->user_data);
 		g_object_unref(device1);
 	}
 }
@@ -169,6 +164,7 @@ static void on_dbus_object_added(GDBusObjectManager *device_manager,
                      GDBusObject        *object,
                      gpointer            user_data)
 {
+    printf("Got a callback signal (object add)\n");
 	const char* object_path = g_dbus_object_get_object_path(G_DBUS_OBJECT(object));
 	GDBusInterface *interface = g_dbus_object_manager_get_interface(device_manager, object_path, "org.bluez.Device1");
 	if (!interface) {
@@ -189,6 +185,8 @@ on_interface_proxy_properties_changed (GDBusObjectManagerClient *device_manager,
                                        const gchar *const       *invalidated_properties,
                                        gpointer                  user_data)
 {
+
+    printf("Properties changed.\n");
 	// Check if the object is a 'org.bluez.Device1'
 	if (strcmp(g_dbus_proxy_get_interface_name(interface_proxy), "org.bluez.Device1") != 0) {
 		return;
@@ -196,6 +194,92 @@ on_interface_proxy_properties_changed (GDBusObjectManagerClient *device_manager,
 
 	// It is a 'org.bluez.Device1'
 	device_manager_on_device1_signal(g_dbus_proxy_get_object_path(interface_proxy), user_data);
+}
+
+/**
+ * Start scanning and wait for callbakcs
+ *
+ * Ref: https://www.linumiz.com/bluetooth-adapter-scan-for-new-devices-using-startdiscovery/
+ * @param adapter
+ * @param discovered_device_cb
+ * @param user_data
+ */
+void gattlib_adapter_scan_enable_async(void *adapter, gattlib_discovered_device_t discovered_device_cb, void *user_data) {
+    struct gattlib_adapter *gattlib_adapter = adapter;
+    GDBusObjectManager *device_manager;
+    GError *error = NULL;
+    int ret = GATTLIB_SUCCESS;
+    int added_signal_id, changed_signal_id;
+    GVariant *rssi_variant = NULL;
+
+    //
+    // Get notification when objects are removed from the Bluez ObjectManager.
+    // We should get notified when the connection is lost with the target to allow
+    // us to advertise us again
+    //
+    device_manager = get_device_manager_from_adapter(gattlib_adapter);
+    if (device_manager == NULL) {
+        goto DISABLE_SCAN;
+    }
+
+
+    added_signal_id = g_signal_connect(G_DBUS_OBJECT_MANAGER(device_manager),
+                                       "object-added",
+                                       G_CALLBACK (on_dbus_object_added),
+                                       &discovered_device_arg);
+
+    // List for object changes to see if there are still devices around
+    changed_signal_id = g_signal_connect(G_DBUS_OBJECT_MANAGER(device_manager),
+                                         "interface-proxy-properties-changed",
+                                         G_CALLBACK(on_interface_proxy_properties_changed),
+                                         &discovered_device_arg);
+
+    // Now, start BLE discovery
+    org_bluez_adapter1_call_start_discovery(gattlib_adapter->adapter_proxy, NULL, NULL, &user_data);
+
+
+    discovered_device_arg.user_data = user_data;
+    discovered_device_arg.callback = discovered_device_cb;
+    discovered_device_arg.adapter = adapter;
+
+    // Create a thread
+    // TODO(Chad): track this eventually so that we can kill it
+    gattlib_adapter->scan_loop = g_main_loop_new(NULL, 0);
+    int thread_ret = pthread_create(&scanning_thread, NULL,	g_main_loop_run, gattlib_adapter->scan_loop);
+    if (thread_ret != 0) {
+        fprintf(stderr, "Failed to create BLE scanning thread.\n");
+    }
+
+
+    DISABLE_SCAN:
+
+    return ret;
+}
+
+
+int gattlib_adapter_scan_disable_async(void* adapter) {
+    struct gattlib_adapter *gattlib_adapter = adapter;
+
+    if (gattlib_adapter->scan_loop) {
+
+        // Stop discovery
+        org_bluez_adapter1_call_stop_discovery(gattlib_adapter->adapter_proxy, NULL, NULL, NULL);
+
+        // Ensure the scan loop is quit
+        if (g_main_loop_is_running(gattlib_adapter->scan_loop)) {
+            g_main_loop_quit(gattlib_adapter->scan_loop);
+        }
+        // Kill our threads and clean up
+        g_main_loop_unref(gattlib_adapter->scan_loop);
+        int thread_ret = pthread_join(scanning_thread, NULL);
+        if (!thread_ret) {
+            sprintf(stderr, "Failed to kill scanning thread.\n");
+        }
+        gattlib_adapter->scan_thread = NULL;
+        gattlib_adapter->scan_loop = NULL;
+    }
+
+    return GATTLIB_SUCCESS;
 }
 
 int gattlib_adapter_scan_enable_with_filter(void *adapter, uuid_t **uuid_list, int16_t rssi_threshold, uint32_t enabled_filters,

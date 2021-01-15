@@ -254,6 +254,19 @@ int gattlib_adapter_scan_enable(
     void* adapter, gattlib_discovered_device_t discovered_device_cb,
     size_t timeout, void* user_data);
 
+
+/**
+ * @brief Enable Bluetooth scanning on a given adapter (asynchronously)
+ *
+ * @param adapter is the context of the newly opened adapter
+ * @param discovered_device_cb is the function callback called for each new
+ * Bluetooth device discovered
+ * @param user_data is the data passed to the callback `discovered_device_cb()`
+ *
+ */
+void gattlib_adapter_scan_enable_async(
+        void* adapter, gattlib_discovered_device_t discovered_device_cb, void* user_data);
+
 /**
  * @brief Enable Bluetooth scanning on a given adapter
  *

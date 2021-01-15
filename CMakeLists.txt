@@ -105,6 +105,7 @@ if(GATTLIB_BUILD_EXAMPLES)
   # Examples
   add_subdirectory(examples/advertisement_data)
   add_subdirectory(examples/ble_scan)
+  add_subdirectory(examples/ble_scan_async)
   add_subdirectory(examples/discover)
   add_subdirectory(examples/find_eddystone)
   add_subdirectory(examples/read_write)

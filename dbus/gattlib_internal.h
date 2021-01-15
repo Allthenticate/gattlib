@@ -72,6 +72,7 @@ struct gattlib_adapter {
 	char* adapter_name;
 
 	GMainLoop *scan_loop;
+	pthread_t scan_thread;
 	guint timeout_id;
 };
 
