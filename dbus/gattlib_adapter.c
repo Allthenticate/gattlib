@@ -141,7 +141,6 @@ static void device_manager_on_device1_signal(const char* device1_path, struct di
 			NULL,
 			&error);
 
-	printf("Got a callback signal (device manager)\n");
 	if (error) {
 		fprintf(stderr, "Failed to connection to new DBus Bluez Device: %s\n",
 			error->message);
@@ -164,7 +163,6 @@ static void on_dbus_object_added(GDBusObjectManager *device_manager,
                      GDBusObject        *object,
                      gpointer            user_data)
 {
-    printf("Got a callback signal (object add)\n");
 	const char* object_path = g_dbus_object_get_object_path(G_DBUS_OBJECT(object));
 	GDBusInterface *interface = g_dbus_object_manager_get_interface(device_manager, object_path, "org.bluez.Device1");
 	if (!interface) {
@@ -245,6 +243,8 @@ void gattlib_adapter_scan_enable_async(void *adapter, gattlib_discovered_device_
     // Create a thread
     // TODO(Chad): track this eventually so that we can kill it
     gattlib_adapter->scan_loop = g_main_loop_new(NULL, 0);
+    // Uncomment to test with synchronous call
+//    g_main_loop_run(gattlib_adapter->scan_loop);
     int thread_ret = pthread_create(&scanning_thread, NULL,	g_main_loop_run, gattlib_adapter->scan_loop);
     if (thread_ret != 0) {
         fprintf(stderr, "Failed to create BLE scanning thread.\n");
