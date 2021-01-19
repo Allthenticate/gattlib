@@ -184,7 +184,6 @@ on_interface_proxy_properties_changed (GDBusObjectManagerClient *device_manager,
                                        gpointer                  user_data)
 {
 
-    printf("Properties changed.\n");
 	// Check if the object is a 'org.bluez.Device1'
 	if (strcmp(g_dbus_proxy_get_interface_name(interface_proxy), "org.bluez.Device1") != 0) {
 		return;
@@ -241,9 +240,8 @@ void gattlib_adapter_scan_enable_async(void *adapter, gattlib_discovered_device_
     discovered_device_arg.adapter = adapter;
 
     // Create a thread
-    // TODO(Chad): track this eventually so that we can kill it
     gattlib_adapter->scan_loop = g_main_loop_new(NULL, 0);
-    // Uncomment to test with synchronous call
+    // Uncomment to make synchronous for testing
 //    g_main_loop_run(gattlib_adapter->scan_loop);
     int thread_ret = pthread_create(&scanning_thread, NULL,	g_main_loop_run, gattlib_adapter->scan_loop);
     if (thread_ret != 0) {
@@ -272,11 +270,12 @@ int gattlib_adapter_scan_disable_async(void* adapter) {
         // Kill our threads and clean up
         g_main_loop_unref(gattlib_adapter->scan_loop);
         int thread_ret = pthread_join(scanning_thread, NULL);
-        if (!thread_ret) {
-            sprintf(stderr, "Failed to kill scanning thread.\n");
-        }
         gattlib_adapter->scan_thread = NULL;
         gattlib_adapter->scan_loop = NULL;
+        if (!thread_ret) {
+            sprintf(stderr, "Failed to kill scanning thread.\n");
+            return GATTLIB_ERROR_INTERNAL;
+        }
     }
 
     return GATTLIB_SUCCESS;

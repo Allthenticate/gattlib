@@ -323,6 +323,15 @@ int gattlib_adapter_scan_eddystone(
 int gattlib_adapter_scan_disable(void* adapter);
 
 /**
+ * @brief Disable Bluetooth scanning (asychronous) on a given adapter
+ *
+ * @param adapter is the context of the newly opened adapter
+ *
+ * @return GATTLIB_SUCCESS on success or GATTLIB_* error code
+ */
+int gattlib_adapter_scan_disable_async(void* adapter);
+
+/**
  * @brief Close Bluetooth adapter context
  *
  * @param adapter is the context of the newly opened adapter
