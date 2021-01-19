@@ -206,7 +206,6 @@ void gattlib_adapter_scan_enable_async(void *adapter, gattlib_discovered_device_
     GDBusObjectManager *device_manager;
     GError *error = NULL;
     int ret = GATTLIB_SUCCESS;
-    int added_signal_id, changed_signal_id;
     GVariant *rssi_variant = NULL;
 
     //
@@ -220,13 +219,13 @@ void gattlib_adapter_scan_enable_async(void *adapter, gattlib_discovered_device_
     }
 
 
-    added_signal_id = g_signal_connect(G_DBUS_OBJECT_MANAGER(device_manager),
+    gattlib_adapter->added_signal_id = g_signal_connect(G_DBUS_OBJECT_MANAGER(device_manager),
                                        "object-added",
                                        G_CALLBACK (on_dbus_object_added),
                                        &discovered_device_arg);
 
     // List for object changes to see if there are still devices around
-    changed_signal_id = g_signal_connect(G_DBUS_OBJECT_MANAGER(device_manager),
+    gattlib_adapter->changed_signal_id = g_signal_connect(G_DBUS_OBJECT_MANAGER(device_manager),
                                          "interface-proxy-properties-changed",
                                          G_CALLBACK(on_interface_proxy_properties_changed),
                                          &discovered_device_arg);
@@ -255,10 +254,32 @@ void gattlib_adapter_scan_enable_async(void *adapter, gattlib_discovered_device_
 }
 
 
+/***
+ * Disable our asynchronous scanning
+ *  - disconnect added signal handler
+ *  - disconnect changed signal handler
+ *  - stop BlueZ discovery
+ *  - kill g_main_loop
+ *  - join our thread
+ *  - reset pointers to NULL
+ *
+ * @param adapter
+ * @return
+ */
 int gattlib_adapter_scan_disable_async(void* adapter) {
     struct gattlib_adapter *gattlib_adapter = adapter;
+    GDBusObjectManager *device_manager;
 
     if (gattlib_adapter->scan_loop) {
+
+        device_manager = get_device_manager_from_adapter(gattlib_adapter);
+        if (device_manager == NULL) {
+            sprintf(stderr, "Failed to get device manager from adapter (scan_disable_async)\n");
+            return GATTLIB_ERROR_INTERNAL;
+        }
+        // Unbind our signal handlers
+        g_signal_handler_disconnect(G_DBUS_OBJECT_MANAGER(device_manager), gattlib_adapter->added_signal_id);
+        g_signal_handler_disconnect(G_DBUS_OBJECT_MANAGER(device_manager), gattlib_adapter->changed_signal_id);
 
         // Stop discovery
         org_bluez_adapter1_call_stop_discovery(gattlib_adapter->adapter_proxy, NULL, NULL, NULL);

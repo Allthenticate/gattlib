@@ -92,19 +92,21 @@ int main(int argc, const char *argv[]) {
 
 
     // Async
-    printf("Enabling scanning...");
-    gattlib_adapter_scan_enable_async(adapter, ble_advertising_device, NULL /* user_data */);
+    while (1) {
+        printf("Enabling scanning...");
+        gattlib_adapter_scan_enable_async(adapter, ble_advertising_device, NULL /* user_data */);
 
 
-    printf("Sleeping for a bit...\n");
-    g_usleep(1000000);
-    printf("Done.\n");
+        printf("Sleeping for a bit...\n");
+        g_usleep(1000000);
+        printf("Done.\n");
 
 
-    gattlib_adapter_scan_disable_async(adapter);
+        gattlib_adapter_scan_disable_async(adapter);
+        puts("Scan completed");
+        g_usleep(1000000);
+    }
 
-
-    puts("Scan completed");
 
 EXIT:
     gattlib_adapter_close(adapter);

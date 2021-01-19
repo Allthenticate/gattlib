@@ -74,6 +74,8 @@ struct gattlib_adapter {
 	GMainLoop *scan_loop;
 	pthread_t scan_thread;
 	guint timeout_id;
+	int added_signal_id;
+	int changed_signal_id;
 };
 
 struct dbus_characteristic {
