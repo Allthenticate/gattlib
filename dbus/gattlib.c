@@ -142,6 +142,10 @@ gatt_connection_t *gattlib_connect(void *adapter, const char *dst,
     // In case NULL is passed, we initialized default adapter
     if (gattlib_adapter == NULL) {
         gattlib_adapter = init_default_adapter();
+        if (gattlib_adapter == NULL) {
+            fprintf(stderr, "Failed to initialize default adapter.\n");
+            return NULL;
+        }
     } else {
         adapter_name = gattlib_adapter->adapter_name;
     }

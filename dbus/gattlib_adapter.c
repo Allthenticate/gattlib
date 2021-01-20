@@ -293,8 +293,8 @@ int gattlib_adapter_scan_disable_async(void* adapter) {
         int thread_ret = pthread_join(scanning_thread, NULL);
         gattlib_adapter->scan_thread = NULL;
         gattlib_adapter->scan_loop = NULL;
-        if (!thread_ret) {
-            sprintf(stderr, "Failed to kill scanning thread.\n");
+        if (thread_ret != 0) {
+            fprintf(stderr, "Failed to kill scanning thread.\n");
             return GATTLIB_ERROR_INTERNAL;
         }
     }

@@ -343,7 +343,7 @@ int gattlib_adapter_close(void* adapter);
 /**
  * @brief Function to connect to a BLE device
  *
- * @param adapter	Local Adaptater interface. When passing NULL, we use
+ * @param adapter	Local Adapter interface. When passing NULL, we use
  * default adapter.
  * @param dst		Remote Bluetooth address
  * @param options	Options to connect to BLE device. See
