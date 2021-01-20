@@ -428,9 +428,11 @@ int gattlib_discover_primary(gatt_connection_t *connection,
             primary_services[count].attr_handle_start = 0;
             primary_services[count].attr_handle_end = 0;
 
-            // Note: We assume the characteristics are always present after the
-            // services
-            for (GList *m = l; m != NULL; m = m->next) {
+            // Note: We must scan *every* object every time becasue the order is not guaranteed to be sequential
+            //   "Although it’s often the case, you should never assume that this handle will be contiguous
+            //    (i.e., 0xNNNN+1) to the one containing the declaration."
+            // Ref: https://www.oreilly.com/library/view/getting-started-with/9781491900550/ch04.html
+            for (GList *m = conn_context->dbus_objects; m != NULL; m = m->next) {
                 GDBusObject *characteristic_object = m->data;
                 const char *characteristic_path = g_dbus_object_get_object_path(
                     G_DBUS_OBJECT(characteristic_object));

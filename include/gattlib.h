@@ -384,8 +384,8 @@ int gattlib_disconnect(gatt_connection_t* connection);
  * @brief Function to register a callback on GATT disconnection
  *
  * @param connection Active GATT connection
- * @param handler is the callaback to invoke on disconnection
- * @param user_data is user specific data to pass to the callaback
+ * @param handler is the callback to invoke on disconnection
+ * @param user_data is user specific data to pass to the callback
  *
  * @return GATTLIB_SUCCESS on success or GATTLIB_* error code
  */
@@ -399,7 +399,7 @@ void gattlib_register_on_disconnect(gatt_connection_t* connection,
 typedef struct {
     uint16_t attr_handle_start; /**< First attribute handle of the GATT Primary
                                    Service */
-    uint16_t attr_handle_end;   /**< Last attibute handle of the GATT Primary
+    uint16_t attr_handle_end;   /**< Last attribute handle of the GATT Primary
                                    Service */
     uuid_t uuid;                /**< UUID of the Primary Service */
 } gattlib_primary_service_t;
