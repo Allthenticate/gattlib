@@ -40,6 +40,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	printf("Connecting to %s...\n", argv[1]);
 	connection = gattlib_connect(NULL, argv[1], GATTLIB_CONNECTION_OPTIONS_LEGACY_DEFAULT);
 	if (connection == NULL) {
 		fprintf(stderr, "Fail to connect to the bluetooth device.\n");
