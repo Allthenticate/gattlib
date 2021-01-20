@@ -85,6 +85,10 @@ static void ble_discovered_device(void *adapter, const char* addr, const char* n
 	struct connection_t *connection;
 	int ret;
 
+	if (addr == NULL) {
+	    printf("got NULL!\n");
+	    return;
+	}
 	if (name) {
 		printf("Discovered %s - '%s'\n", addr, name);
 	} else {
@@ -136,7 +140,7 @@ int main(int argc, const char *argv[]) {
 
 
     printf("Sleeping for a bit...\n");
-	g_usleep(1000000);
+	g_usleep(10000000);
 	printf("Done.\n");
 
 
