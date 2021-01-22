@@ -251,6 +251,11 @@ int gattlib_get_advertisement_data_from_mac(
     OrgBluezDevice1 *bluez_device1;
     int ret;
 
+    if (mac_address == NULL) {
+        printf(stderr, "mac_address is NULL.\n");
+        return GATTLIB_INVALID_PARAMETER;
+    }
+
     ret = get_bluez_device_from_mac(adapter, mac_address, &bluez_device1);
     if (ret != GATTLIB_SUCCESS) {
         g_object_unref(bluez_device1);
